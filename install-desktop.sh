@@ -14,17 +14,23 @@ if id "dietpi" &>/dev/null; then
 fi
 USER_NAME="$DEFAULT_USER"
 
-echo "🚀 Starte Installation des Hermes Paketmanagers für Raspberry Pi OS Desktop (Benutzer: $USER_NAME)"
+echo "🚀 Starte Installation des Hermes Paketmanagers (Raspberry Pi OS Desktop, Benutzer: $USER_NAME)"
 
-# --- Systempakete aktualisieren ---
+# --- Verfügbare Python-Version prüfen ---
+PYTHON_BIN=$(command -v python3 || true)
+PYTHON_VER=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.9")
+
+echo "📦 Verwende Python $PYTHON_VER"
+
+# --- Systempakete ---
 apt update
-apt install -y python3.11 python3.11-venv python3.11-dev build-essential \
+apt install -y python3 python3-venv python3-dev build-essential \
   libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
   libportmidi-dev libmtdev-dev libgl1-mesa-dev libgles2-mesa-dev \
   libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
   libjpeg-dev zlib1g-dev xinput mesa-utils
 
-# --- GPU-Speicher prüfen (mind. 128 MB empfohlen für Desktop + Kivy) ---
+# --- GPU-Speicher prüfen (mind. 128 MB) ---
 gpu_mem=$(vcgencmd get_mem gpu 2>/dev/null | cut -d'=' -f2 | cut -d'M' -f1 || echo 0)
 if (( gpu_mem < 128 )); then
   echo "⚙️  Setze GPU Memory Split auf 128 MB ..."
@@ -42,19 +48,19 @@ cp -r ./* "$install_dir"
 chown -R "$USER_NAME":"$USER_NAME" "$install_dir"
 cd "$install_dir"
 
-# --- Virtuelle Umgebung einrichten ---
-echo "🐍 Erstelle virtuelle Umgebung ..."
-sudo -u "$USER_NAME" python3.11 -m venv venv
+# --- Virtuelle Umgebung ---
+echo "🐍 Erstelle virtuelle Umgebung mit Python $PYTHON_VER ..."
+sudo -u "$USER_NAME" $PYTHON_BIN -m venv venv
 source venv/bin/activate
 
-# --- Python-Pakete ---
+# --- Python-Pakete installieren ---
 pip install --upgrade pip setuptools wheel Cython
 pip install kivy==2.3.0
 pip install -r requirements.txt || true
 
 echo "✅ Python-Umgebung und Kivy installiert"
 
-# --- Optional: Touchscreen-Kalibrierung (1200×800) ---
+# --- Touchscreen-Kalibrierung (1200×800) ---
 mkdir -p /usr/share/X11/xorg.conf.d
 cat >/usr/share/X11/xorg.conf.d/99-touchscreen.conf <<'EOF'
 Section "Monitor"
@@ -82,7 +88,7 @@ EOF
 
 echo "✅ X11-Touchscreen-Konfiguration gesetzt (1200×800)"
 
-# --- Autostart-Eintrag im Benutzer-Desktop ---
+# --- Autostart im Desktop ---
 AUTOSTART_DIR="/home/$USER_NAME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 
@@ -98,7 +104,7 @@ chown "$USER_NAME":"$USER_NAME" "$AUTOSTART_DIR/hermes.desktop"
 
 echo "✅ Autostart-Datei erstellt unter $AUTOSTART_DIR/hermes.desktop"
 
-# --- Optional: Automatische Desktop-Anmeldung aktivieren ---
+# --- Automatische Anmeldung aktivieren ---
 echo "⚙️  Aktiviere automatische Desktop-Anmeldung für Benutzer '$USER_NAME' ..."
 raspi-config nonint do_boot_behaviour B4
 
