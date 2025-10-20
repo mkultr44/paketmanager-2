@@ -1,0 +1,16 @@
+[Unit]
+Description=Hermes Paket Einlagerungssystem
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/paketmanager
+ExecStart=/opt/paketmanager/venv/bin/python /opt/paketmanager/app.py
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+
+[Install]
+WantedBy=graphical.target
