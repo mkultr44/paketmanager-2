@@ -8,7 +8,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # --- Benutzer bestimmen ---
-DEFAULT_USER="pi"
+DEFAULT_USER="aralpi"
 if id "dietpi" &>/dev/null; then
   DEFAULT_USER="dietpi"
 fi
