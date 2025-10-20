@@ -1,0 +1,4 @@
+kivy==2.3.0
+Cython>=0.29.36
+setuptools>=68
+wheel>=0.41

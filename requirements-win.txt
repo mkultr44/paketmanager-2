@@ -1,0 +1,4 @@
+kivy==2.3.0
+kivy_deps.sdl2; platform_system == "Windows"
+kivy_deps.glew; platform_system == "Windows"
+kivy_deps.angle; platform_system == "Windows"
