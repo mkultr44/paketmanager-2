@@ -8,7 +8,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # --- Benutzer bestimmen ---
-DEFAULT_USER="aralpi"
+DEFAULT_USER="pi"
 if id "dietpi" &>/dev/null; then
   DEFAULT_USER="dietpi"
 fi
@@ -16,21 +16,15 @@ USER_NAME="$DEFAULT_USER"
 
 echo "🚀 Starte Installation des Hermes Paketmanagers (Raspberry Pi OS Desktop, Benutzer: $USER_NAME)"
 
-# --- Verfügbare Python-Version prüfen ---
-PYTHON_BIN=$(command -v python3 || true)
-PYTHON_VER=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.9")
-
-echo "📦 Verwende Python $PYTHON_VER"
-
 # --- Systempakete ---
 apt update
-apt install -y python3 python3-venv python3-dev build-essential \
-  libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-  libportmidi-dev libmtdev-dev libgl1-mesa-dev libgles2-mesa-dev \
+apt install -y python3 python3-venv python3-dev python3-pip \
+  build-essential git pkg-config libgl1-mesa-dev libgles2-mesa-dev \
   libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-  libjpeg-dev zlib1g-dev xinput mesa-utils
+  libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+  libmtdev-dev libportmidi-dev xinput mesa-utils libjpeg-dev zlib1g-dev
 
-# --- GPU-Speicher prüfen (mind. 128 MB) ---
+# --- GPU-Speicher prüfen ---
 gpu_mem=$(vcgencmd get_mem gpu 2>/dev/null | cut -d'=' -f2 | cut -d'M' -f1 || echo 0)
 if (( gpu_mem < 128 )); then
   echo "⚙️  Setze GPU Memory Split auf 128 MB ..."
@@ -41,7 +35,7 @@ if (( gpu_mem < 128 )); then
   fi
 fi
 
-# --- Projektverzeichnis vorbereiten ---
+# --- Projektverzeichnis ---
 install_dir="/opt/paketmanager"
 mkdir -p "$install_dir"
 cp -r ./* "$install_dir"
@@ -49,16 +43,24 @@ chown -R "$USER_NAME":"$USER_NAME" "$install_dir"
 cd "$install_dir"
 
 # --- Virtuelle Umgebung ---
-echo "🐍 Erstelle virtuelle Umgebung mit Python $PYTHON_VER ..."
-sudo -u "$USER_NAME" $PYTHON_BIN -m venv venv
+echo "🐍 Erstelle virtuelle Umgebung ..."
+sudo -u "$USER_NAME" python3 -m venv venv
 source venv/bin/activate
 
-# --- Python-Pakete installieren ---
-pip install --upgrade pip setuptools wheel Cython
-pip install kivy==2.3.0
+# --- Pip vorbereiten ---
+pip install --upgrade pip setuptools wheel
+
+# --- Kivy vorkompiliert installieren (ARM-optimiert) ---
+echo "📦 Installiere Kivy ARM Wheel ..."
+pip install "kivy[base] @ https://github.com/kivy/kivy/releases/download/2.3.0/Kivy-2.3.0-cp39-cp39-linux_armv7l.whl" || {
+  echo "⚠️  ARMv8 erkannt – versuche aarch64-Version ..."
+  pip install "kivy[base] @ https://github.com/kivy/kivy/releases/download/2.3.0/Kivy-2.3.0-cp39-cp39-linux_aarch64.whl"
+}
+
+# --- Weitere Abhängigkeiten installieren ---
 pip install -r requirements.txt || true
 
-echo "✅ Python-Umgebung und Kivy installiert"
+echo "✅ Kivy und Abhängigkeiten installiert"
 
 # --- Touchscreen-Kalibrierung (1200×800) ---
 mkdir -p /usr/share/X11/xorg.conf.d
