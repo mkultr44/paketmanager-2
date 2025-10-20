@@ -345,13 +345,18 @@ class DataStore:
         self.conn.execute("CREATE TABLE IF NOT EXISTS pakete(id INTEGER PRIMARY KEY, code TEXT UNIQUE, zone TEXT, ts TEXT)")
         self.conn.commit()
     def upsert(self, code, zone):
+        # ts nur beim ERSTEN Einfügen setzen, bei Kollision (code existiert) NUR die Zone aktualisieren
         ts = datetime.utcnow().isoformat()
         cur = self.conn.cursor()
-        cur.execute("INSERT INTO pakete(code,zone,ts) VALUES(?,?,?) ON CONFLICT(code) DO UPDATE SET zone=excluded.zone, ts=excluded.ts", (code, zone, ts))
+        cur.execute(
+            "INSERT INTO pakete(code, zone, ts) VALUES(?, ?, ?) "
+            "ON CONFLICT(code) DO UPDATE SET zone=excluded.zone",
+            (code, zone, ts),
+        )
         self.conn.commit()
     def all(self):
         cur = self.conn.cursor()
-        cur.execute("SELECT code, zone, ts FROM pakete ORDER BY ts DESC")
+        cur.execute("SELECT code, zone, ts FROM pakete ORDER BY code COLLATE NOCASE ASC")
         return cur.fetchall()
     def zone_of(self, code):
         cur = self.conn.cursor()
@@ -542,7 +547,7 @@ class HermesApp(App):
                     w.color = (1,1,1,1)
             else:
                 if selected_zone == z:
-                    w.bg_color = (1,1,0,1)
+                    w.bg_color = (1,0,0,1)
                 else:
                     w.bg_color = tuple(self.default_blue)
                 w.color = (1,1,1,1)
