@@ -42,9 +42,6 @@ sudo -u "$USER_NAME" python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip setuptools wheel Cython
 
-echo "📦 Baue Kivy 2.3.0 aus Source (Dauert 15–30 min auf Pi 4)"
-pip install "kivy[base] @ git+https://github.com/kivy/kivy.git@2.3.0"
-
 pip install -r requirements.txt || true
 
 # Touchscreen-Kalibrierung 1200×800
