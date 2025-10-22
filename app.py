@@ -80,7 +80,7 @@ KV = """
     padding: dp(12)
     spacing: dp(12)
 
-    # -------------------- LEFT: Suchfeld + Trefferliste + neue E1-E9-Reihe --------------------
+    # ---------------- LEFT ----------------
     BoxLayout:
         id: left
         orientation: 'vertical'
@@ -101,8 +101,9 @@ KV = """
             size_hint_y: None
             height: dp(80)
 
-        # Trefferliste nimmt den restlichen Platz über der unteren E-Reihe ein
         BoxLayout:
+            orientation: 'vertical'
+            spacing: dp(8)
             size_hint_y: 1
             canvas.before:
                 Color:
@@ -123,13 +124,13 @@ KV = """
                     height: self.minimum_height
                     orientation: 'vertical'
 
-        # Neue E-1 .. E-9 Reihe unter der Liste
-        BoxLayout:
-            id: e_row
+        # E1–E5 unter der Liste
+        GridLayout:
+            id: e_row_left
+            cols: 5
             size_hint_y: None
             height: dp(110)
-            spacing: dp(12)
-            padding: [0, dp(8), 0, 0]
+            spacing: dp(6)
             RectBtn:
                 id: zE1
                 text: 'E-1'
@@ -150,24 +151,8 @@ KV = """
                 id: zE5
                 text: 'E-5'
                 on_release: app.on_zone_press('E-5')
-            RectBtn:
-                id: zE6
-                text: 'E-6'
-                on_release: app.on_zone_press('E-6')
-            RectBtn:
-                id: zE7
-                text: 'E-7'
-                on_release: app.on_zone_press('E-7')
-            RectBtn:
-                id: zE8
-                text: 'E-8'
-                on_release: app.on_zone_press('E-8')
-            RectBtn:
-                id: zE9
-                text: 'E-9'
-                on_release: app.on_zone_press('E-9')
 
-    # -------------------- MIDDLE: Einbuchen-Button + Zonen A-D (unverändert) --------------------
+    # ---------------- MIDDLE ----------------
     BoxLayout:
         id: middle
         orientation: 'vertical'
@@ -217,7 +202,31 @@ KV = """
                 text: 'D'
                 on_release: app.on_zone_press('D')
 
-    # -------------------- RIGHT: Keypad + F (unverändert) --------------------
+        # E6–E9 unter Zone D
+        GridLayout:
+            id: e_row_mid
+            cols: 4
+            size_hint_y: None
+            height: dp(110)
+            spacing: dp(6)
+            RectBtn:
+                id: zE6
+                text: 'E-6'
+                on_release: app.on_zone_press('E-6')
+            RectBtn:
+                id: zE7
+                text: 'E-7'
+                on_release: app.on_zone_press('E-7')
+            RectBtn:
+                id: zE8
+                text: 'E-8'
+                on_release: app.on_zone_press('E-8')
+            RectBtn:
+                id: zE9
+                text: 'E-9'
+                on_release: app.on_zone_press('E-9')
+
+    # ---------------- RIGHT (Keypad + F) ----------------
     BoxLayout:
         id: right
         orientation: 'vertical'
@@ -339,7 +348,7 @@ KV = """
                         size: app.key_side, app.key_side
                         on_release: app.keypad_char('3')
 
-            # Row 4: 0 (doppelt) + DEL
+            # Row 4: 0 + DEL
             AnchorLayout:
                 anchor_x: 'center'
                 size_hint_y: None
@@ -365,8 +374,11 @@ KV = """
             text: 'F'
             on_release: app.on_zone_press('F')
             size_hint_y: None
-            height: dp(120)
+            height: dp(110)
 """
+
+
+
 
 DB_FILE = "pakete.db"
 
