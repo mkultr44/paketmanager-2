@@ -1,13 +1,21 @@
 import sqlite3
 from datetime import datetime, timedelta
 from kivy.config import Config
+Config.set('input', 'mouse', 'disable')
+Config.set('input', 'mtdev_%(name)s', '')
+Config.set('input', 'hid_%(name)s', '')
+Config.set('input', 'wm_touch', '')
+Config.set('input', 'wm_pen', '')
+Config.set('input', 'wm_%(name)s', '')
+Config.set('modules', 'touchring', '')
+Config.set('modules', 'touchpad', '')
 Config.set("graphics", "resizable", "0")
 Config.set("kivy", "keyboard_mode", "systemanddock")
 from kivy.core.window import Window
 Window.size = (1200, 800)
 Window.fullscreen = True
-from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.clock import Clock
@@ -72,6 +80,7 @@ KV = """
     padding: dp(12)
     spacing: dp(12)
 
+    # -------------------- LEFT: Suchfeld + Trefferliste + neue E1-E9-Reihe --------------------
     BoxLayout:
         id: left
         orientation: 'vertical'
@@ -92,6 +101,7 @@ KV = """
             size_hint_y: None
             height: dp(80)
 
+        # Trefferliste nimmt den restlichen Platz über der unteren E-Reihe ein
         BoxLayout:
             size_hint_y: 1
             canvas.before:
@@ -113,6 +123,51 @@ KV = """
                     height: self.minimum_height
                     orientation: 'vertical'
 
+        # Neue E-1 .. E-9 Reihe unter der Liste
+        BoxLayout:
+            id: e_row
+            size_hint_y: None
+            height: dp(110)
+            spacing: dp(12)
+            padding: [0, dp(8), 0, 0]
+            RectBtn:
+                id: zE1
+                text: 'E-1'
+                on_release: app.on_zone_press('E-1')
+            RectBtn:
+                id: zE2
+                text: 'E-2'
+                on_release: app.on_zone_press('E-2')
+            RectBtn:
+                id: zE3
+                text: 'E-3'
+                on_release: app.on_zone_press('E-3')
+            RectBtn:
+                id: zE4
+                text: 'E-4'
+                on_release: app.on_zone_press('E-4')
+            RectBtn:
+                id: zE5
+                text: 'E-5'
+                on_release: app.on_zone_press('E-5')
+            RectBtn:
+                id: zE6
+                text: 'E-6'
+                on_release: app.on_zone_press('E-6')
+            RectBtn:
+                id: zE7
+                text: 'E-7'
+                on_release: app.on_zone_press('E-7')
+            RectBtn:
+                id: zE8
+                text: 'E-8'
+                on_release: app.on_zone_press('E-8')
+            RectBtn:
+                id: zE9
+                text: 'E-9'
+                on_release: app.on_zone_press('E-9')
+
+    # -------------------- MIDDLE: Einbuchen-Button + Zonen A-D (unverändert) --------------------
     BoxLayout:
         id: middle
         orientation: 'vertical'
@@ -162,32 +217,7 @@ KV = """
                 text: 'D'
                 on_release: app.on_zone_press('D')
 
-        BoxLayout:
-            size_hint_y: None
-            height: dp(110)
-            spacing: dp(18)
-            padding: [0, dp(8), 0, 0]
-            RectBtn:
-                id: zE1
-                text: 'E-1'
-                on_release: app.on_zone_press('E-1')
-                size_hint_x: 1
-            RectBtn:
-                id: zE2
-                text: 'E-2'
-                on_release: app.on_zone_press('E-2')
-                size_hint_x: 1
-            RectBtn:
-                id: zE3
-                text: 'E-3'
-                on_release: app.on_zone_press('E-3')
-                size_hint_x: 1
-            RectBtn:
-                id: zE4
-                text: 'E-4'
-                on_release: app.on_zone_press('E-4')
-                size_hint_x: 1
-
+    # -------------------- RIGHT: Keypad + F (unverändert) --------------------
     BoxLayout:
         id: right
         orientation: 'vertical'
@@ -201,7 +231,7 @@ KV = """
             size_hint_y: 1
             on_size: app.update_key_side(self)
 
-            # Row 0: H + Backspace (bleibt wie gehabt)
+            # Row 0: H + Backspace
             AnchorLayout:
                 anchor_x: 'center'
                 size_hint_y: None
@@ -529,27 +559,34 @@ class HermesApp(App):
 
     def update_all_zone_styles(self):
         ids = self.root.ids
-        mapping = {"A":"zA","B":"zB","C":"zC","D":"zD","E-1":"zE1","E-2":"zE2","E-3":"zE3","E-4":"zE4","F":"zF"}
+        # Mapping erweitert um E-5 .. E-9
+        mapping = {
+            "A":"zA","B":"zB","C":"zC","D":"zD",
+            "E-1":"zE1","E-2":"zE2","E-3":"zE3","E-4":"zE4",
+            "E-5":"zE5","E-6":"zE6","E-7":"zE7","E-8":"zE8","E-9":"zE9",
+            "F":"zF"
+        }
         selected_zone = None
         if self.mode == "normal" and self.selected_code:
             cur = self.db.conn.cursor()
             cur.execute("SELECT zone FROM pakete WHERE code=?", (self.selected_code,))
             r = cur.fetchone()
             selected_zone = r[0] if r else None
+
         for z, wid_id in mapping.items():
             w = ids.get(wid_id)
             if not w:
                 continue
             if self.mode == "booking":
                 if self.active_zone == z:
-                    w.bg_color = (1,1,0,1)
-                    w.color = (0,0,0,1)
+                    w.bg_color = (1,1,0,1)   # gelb
+                    w.color    = (0,0,0,1)   # schwarzer Text
                 else:
-                    w.bg_color = (0,0,0,1)
-                    w.color = (1,1,1,1)
+                    w.bg_color = (0,0,0,1)   # schwarz
+                    w.color    = (1,1,1,1)
             else:
                 if selected_zone == z:
-                    w.bg_color = (1,0,0,1)
+                    w.bg_color = (1,0,0,1)   # rot bei Treffer
                 else:
                     w.bg_color = tuple(self.default_blue)
                 w.color = (1,1,1,1)
