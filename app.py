@@ -14,7 +14,6 @@ Config.set("kivy", "keyboard_mode", "systemanddock")
 from kivy.core.window import Window
 Window.size = (1200, 800)
 Window.fullscreen = True
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 from kivy.app import App
 from kivy.lang import Builder
