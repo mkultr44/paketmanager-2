@@ -1,23 +1,6 @@
-# -*- coding: utf-8 -*-
-# Hermes Paketmanager – stabile Kivy-App mit B2-Backup & Auto-Update
-# Kompatibel mit bestehender pakete.db
-
-# --- Umgebung/Runtime-Flags (Stabilität) ---
-import os
-os.environ.setdefault("KIVY_METRICS_DENSITY", "1.0")
-os.environ.setdefault("KIVY_NO_CONSOLELOG", "1")
-os.environ.setdefault("KIVY_CLOCK", "interrupt")
-os.environ.setdefault("SDL_VIDEO_X11_DGAMOUSE", "0")
-os.environ.setdefault("SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS", "0")
-
 import sqlite3
 from datetime import datetime, timedelta
-
-# Kivy Config (vor Kivy-Imports anpassen)
 from kivy.config import Config
-Config.set("graphics", "resizable", "0")
-Config.set("kivy", "keyboard_mode", "systemanddock")
-# Touch/Maus-Emulation komplett aus – verhindert Double-Tap
 Config.set('input', 'mouse', 'disable')
 Config.set('input', 'mtdev_%(name)s', '')
 Config.set('input', 'hid_%(name)s', '')
@@ -26,8 +9,8 @@ Config.set('input', 'wm_pen', '')
 Config.set('input', 'wm_%(name)s', '')
 Config.set('modules', 'touchring', '')
 Config.set('modules', 'touchpad', '')
-Config.set('graphics', 'maxfps', '50')  # GPU-Last begrenzen
-
+Config.set("graphics", "resizable", "0")
+Config.set("kivy", "keyboard_mode", "systemanddock")
 from kivy.core.window import Window
 Window.size = (1200, 800)
 Window.fullscreen = True
@@ -38,102 +21,6 @@ from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.properties import StringProperty, ListProperty, ObjectProperty, NumericProperty
 from kivy.uix.boxlayout import BoxLayout
-
-# --- Pfade & externe Funktionen (Backup / Update) ---
-import subprocess, threading, shutil, hashlib, ssl, urllib.request, time, sys
-
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = "pakete.db"
-DB_PATH = os.path.join(PROJECT_ROOT, DB_FILE)
-
-BACKUP_DIR = "/opt/paketmanager/backup"                # lokaler Backup-Ordner für DB & app.py
-RCLONE_DEST = "b2:aralbruehl-backups/paketmanager"      # rclone Remote-Ziel (einmalig per `rclone config` einrichten)
-RAW_APP_URL = "https://raw.githubusercontent.com/mkultr44/paketmanager-2/main/app.py"  # Auto-Update Quelle (Branch: main)
-
-def ensure_dirs():
-    try:
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-    except Exception as e:
-        print("⚠️ Konnte Backup-Verzeichnis nicht erstellen:", e)
-
-ensure_dirs()
-
-def _sha256_bytes(b: bytes) -> bytes:
-    return hashlib.sha256(b).digest()
-
-def files_equal_bytes(a: bytes, b: bytes) -> bool:
-    return _sha256_bytes(a) == _sha256_bytes(b)
-
-def backup_db_async():
-    """Asynchrones B2-Backup der Datenbank (blockiert UI nicht, offline-tolerant)."""
-    def _run():
-        try:
-            ensure_dirs()
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Lokale, versionierte Kopie
-            if os.path.exists(DB_PATH):
-                local_copy = os.path.join(BACKUP_DIR, f"pakete_{ts}.db")
-                shutil.copy2(DB_PATH, local_copy)
-
-            # Remotekopie: latest + versioniert (nur wenn rclone vorhanden)
-            try:
-                subprocess.run(
-                    ["rclone", "copyto", DB_PATH, f"{RCLONE_DEST}/pakete.db"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60
-                )
-                subprocess.run(
-                    ["rclone", "copyto", DB_PATH, f"{RCLONE_DEST}/pakete_{ts}.db"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60
-                )
-                print("✅ B2-Backup ok", ts)
-            except FileNotFoundError:
-                print("ℹ️ rclone nicht gefunden – B2-Upload übersprungen.")
-            except Exception as e:
-                print("⚠️ B2-Upload fehlgeschlagen (offline?):", e)
-
-        except Exception as e:
-            print("⚠️ Backup-Thread-Fehler:", e)
-
-    threading.Thread(target=_run, daemon=True).start()
-
-def check_and_update_app_async():
-    """Prüft alle 30 Min GitHub auf neue app.py. Nur bei Änderung: Backup, ersetzen, Neustart.
-       Offline-tolerant: bei Fehlern weiterlaufen."""
-    def _run():
-        try:
-            ctx = ssl.create_default_context()
-            with urllib.request.urlopen(RAW_APP_URL, context=ctx, timeout=20) as resp:
-                new_bytes = resp.read()
-
-            app_path = os.path.abspath(__file__)
-            with open(app_path, "rb") as f:
-                cur_bytes = f.read()
-
-            if files_equal_bytes(new_bytes, cur_bytes):
-                # identisch -> kein Neustart
-                return
-
-            # Änderung erkannt: alte Datei sichern, neue übernehmen, sauber neu starten
-            ensure_dirs()
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_app = os.path.join(BACKUP_DIR, f"app.py.{ts}")
-            shutil.copy2(app_path, backup_app)
-
-            tmp_path = app_path + ".new"
-            with open(tmp_path, "wb") as f:
-                f.write(new_bytes)
-            os.replace(tmp_path, app_path)
-
-            print(f"🔄 Update installiert ({ts}), Neustart…")
-            # systemd (Restart=always) startet neu
-            os._exit(0)
-
-        except Exception as e:
-            # offline oder GitHub down → leise protokollieren, aber App weiterlaufen lassen
-            print("ℹ️ Update-Check fehlgeschlagen (offline?):", e)
-
-    threading.Thread(target=_run, daemon=True).start()
 
 KV = """
 #:import dp kivy.metrics.dp
@@ -314,7 +201,7 @@ KV = """
                 text: 'D'
                 on_release: app.on_zone_press('D')
 
-        # E6–E9 unter Zone D (gleiche Höhe wie A–D/E1–E5)
+        # E6–E9 unter Zone D
         GridLayout:
             id: e_row_mid
             cols: 4
@@ -489,16 +376,19 @@ KV = """
             height: dp(110)
 """
 
+
+
+
+DB_FILE = "pakete.db"
+
 class DataStore:
     def __init__(self, path=DB_FILE):
-        # Thread-safe + Timeout für Blockaden vermeiden
-        self.conn = sqlite3.connect(path, check_same_thread=False, timeout=2)
+        self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self.conn.execute("CREATE TABLE IF NOT EXISTS pakete(id INTEGER PRIMARY KEY, code TEXT UNIQUE, zone TEXT, ts TEXT)")
         self.conn.commit()
-
     def upsert(self, code, zone):
-        # ts nur beim ersten Insert setzen; spätere Zone-Änderung aktualisiert ts NICHT
+        # ts nur beim ERSTEN Einfügen setzen, bei Kollision (code existiert) NUR die Zone aktualisieren
         ts = datetime.utcnow().isoformat()
         cur = self.conn.cursor()
         cur.execute(
@@ -507,19 +397,15 @@ class DataStore:
             (code, zone, ts),
         )
         self.conn.commit()
-
     def all(self):
         cur = self.conn.cursor()
         cur.execute("SELECT code, zone, ts FROM pakete ORDER BY code COLLATE NOCASE ASC")
         return cur.fetchall()
-
     def zone_of(self, code):
         cur = self.conn.cursor()
         cur.execute("SELECT zone FROM pakete WHERE code=?", (code,))
-        r = cur.fetchone
         r = cur.fetchone()
         return r[0] if r else None
-
     def delete_older_than_days(self, days=10):
         limit = (datetime.utcnow() - timedelta(days=days)).isoformat()
         cur = self.conn.cursor()
@@ -543,29 +429,6 @@ class HermesApp(App):
     key_side = NumericProperty(dp(90))
     default_blue = ListProperty([0.11,0.46,0.78,1])
 
-    # --- Zusatz: tägliche geplante Neustarts (22:10 & 05:30) ---
-    def schedule_daily_restart(self):
-        from datetime import datetime, timedelta
-
-        def seconds_until(h, m):
-            now = datetime.now()
-            tgt = now.replace(hour=h, minute=m, second=0, microsecond=0)
-            if tgt <= now:
-                tgt += timedelta(days=1)
-            return (tgt - now).total_seconds()
-
-        def do_restart(*_):
-            try:
-                sys.stdout.flush()
-                sys.stderr.flush()
-            except Exception:
-                pass
-            os._exit(0)
-
-        # Zwei tägliche Trigger setzen
-        Clock.schedule_once(lambda dt: Clock.schedule_once(lambda _dt: do_restart(), seconds_until(22, 10)), 0)
-        Clock.schedule_once(lambda dt: Clock.schedule_once(lambda _dt: do_restart(), seconds_until(5, 30)), 0)
-
     def build(self):
         self.db = DataStore()
         Builder.load_string(KV)
@@ -575,35 +438,11 @@ class HermesApp(App):
         return root
 
     def _post_build(self, dt):
-        # Display-Schlaf verhindern (falls X vorhanden)
-        try:
-            subprocess.Popen(["/usr/bin/xset", "s", "off"])
-            subprocess.Popen(["/usr/bin/xset", "-dpms"])
-            subprocess.Popen(["/usr/bin/xset", "s", "noblank"])
-        except Exception:
-            pass
-
         self.refresh_packages()
         self.update_search_display()
         self.db.delete_older_than_days(10)
-        Clock.schedule_interval(lambda dt: self.safe_cleanup(), 3600)  # stündlich, safe
-
-        # Auto-Update: alle 30 Minuten; offline-tolerant
-        try:
-            Clock.schedule_interval(lambda _dt: check_and_update_app_async(), 1800)
-        except Exception as e:
-            print("⚠️ Konnte Update-Scheduler nicht setzen:", e)
-
-        # geplante tägliche Restarts
-        self.schedule_daily_restart()
-
+        Clock.schedule_interval(lambda dt: self.db.delete_older_than_days(10), 3600)
         self.update_all_zone_styles()
-
-    def safe_cleanup(self):
-        try:
-            self.db.delete_older_than_days(10)
-        except Exception as e:
-            print("Cleanup failed:", e)
 
     def update_key_side(self, area):
         gap = dp(10)
@@ -637,9 +476,7 @@ class HermesApp(App):
             if t is None:
                 continue
             data.append({"text": t, "on_release": lambda c=code: self.on_item_select(c)})
-        # Speicher-freundlich aktualisieren
-        rv.data = []
-        rv.data.extend(data)
+        rv.data = data
 
     def on_item_select(self, code):
         self.selected_code = code
@@ -709,10 +546,6 @@ class HermesApp(App):
         if not code:
             return
         self.db.upsert(code, self.active_zone)
-
-        # --- B2-Backup nach Einbuchen (asynchron, offline-tolerant) ---
-        backup_db_async()
-
         self.scan_buffer = ""
         self.refresh_packages()
         self.update_all_zone_styles()
@@ -737,10 +570,11 @@ class HermesApp(App):
 
     def update_all_zone_styles(self):
         ids = self.root.ids
+        # Mapping erweitert um E-5 .. E-9
         mapping = {
             "A":"zA","B":"zB","C":"zC","D":"zD",
-            "E-1":"zE1","E-2":"zE2","E-3":"zE3","E-4":"zE4","E-5":"zE5",
-            "E-6":"zE6","E-7":"zE7","E-8":"zE8","E-9":"zE9",
+            "E-1":"zE1","E-2":"zE2","E-3":"zE3","E-4":"zE4",
+            "E-5":"zE5","E-6":"zE6","E-7":"zE7","E-8":"zE8","E-9":"zE9",
             "F":"zF"
         }
         selected_zone = None
@@ -763,7 +597,7 @@ class HermesApp(App):
                     w.color    = (1,1,1,1)
             else:
                 if selected_zone == z:
-                    w.bg_color = (1,0,0,1)   # rot bei Treffer im Suchmodus
+                    w.bg_color = (1,0,0,1)   # rot bei Treffer
                 else:
                     w.bg_color = tuple(self.default_blue)
                 w.color = (1,1,1,1)
