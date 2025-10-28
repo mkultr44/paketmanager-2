@@ -718,21 +718,29 @@ class HermesApp(App):
         self.update_all_zone_styles()
 
     def on_key_down(self, window, key, scancode, codepoint, modifier):
+        # Backspace
         if key in (8,):
             self.keypad_backspace()
             return True
+
+        # Delete
         if key in (127,):
             self.keypad_clear()
             return True
-        if key in (13, 271):
+
+        # Alle gängigen Scan-Ende-Tasten: Enter, Tab, Space, LineFeed
+        if key in (9, 10, 13, 271, 32):
             if self.mode == "booking" and self.active_zone:
                 self.commit_scan_buffer()
             return True
+
+        # Alphanumerische Zeichen erfassen
         if codepoint:
             c = codepoint.upper()
             if c.isalnum():
                 self.keypad_char(c)
                 return True
+
         return False
 
     def update_all_zone_styles(self):
